@@ -15,14 +15,16 @@ using namespace std;
 void outBin(int x);
 void TestCreatFile();
 void TestOpenFile();
-void TestInsertRec();
+void TestOperateRec();
+//void TestScan();
 void printlnMsg(RC tmp);
 int main(void)
 {
 
 	TestCreatFile();
 	TestOpenFile();
-	TestInsertRec();
+	TestOperateRec();
+	//TestScan();
 	return 0;
 }
 
@@ -112,17 +114,17 @@ void TestOpenFile() {
 
 }
 
-void TestInsertRec() {
+void TestOperateRec() {
 	char pData[12];
 	*((int*)pData) = 5;
 	*(((int*)pData)+1) = 2;
-	*(((int*)pData) + 1) = 1;
+	*(((int*)pData) + 2) = 1;
 
 	RID rid;
 	RM_FileHandle rmFileHandle;
 	char fileName[] = "123.txt";
 	if (_access(fileName, 0) != -1) {
-		remove(fileName);
+		remove(fileName); 
 	}
 	RM_CreateFile(fileName, 12);
 	RC tmp = RM_OpenFile(fileName, &rmFileHandle);
@@ -159,9 +161,98 @@ void TestInsertRec() {
 	assert(rid.pageNum == 2);
 	assert(rid.slotNum == 2);
 	assert(rmFileSubHeader->nRecords == 3);
-
 	std::cout << "TestInsertRec:" << "SUCCESS" << std::endl;
+
+	RM_Record record;
+	tmp = GetRec(&rmFileHandle, &rid, &record);
+	assert(tmp == SUCCESS);
+	assert(equalStr(record.pData, pData, rmFileHandle.rmPageHandle->recordSize));
+	std::cout << "TestGetRec:" << "SUCCESS" << std::endl;
+
+	char pData0[12];
+	*((int*)pData0) = 4;
+	*(((int*)pData0) + 1) = 3;
+	*(((int*)pData0) + 2) = 2;
+	record.bValid = true;
+	record.pData = pData0;
+	record.rid = rid;
+	tmp = UpdateRec(&rmFileHandle, &record);
+	assert(tmp == SUCCESS);
+	GetRec(&rmFileHandle, &rid, &record);
+	assert(equalStr(record.pData, pData0, rmFileHandle.rmPageHandle->recordSize));
+	std::cout << "TestUpdateRec:" << "SUCCESS" << std::endl;
+
+	rid.pageNum = 2;
+	rid.slotNum = 0;
+	tmp = GetRec(&rmFileHandle, &rid, &record);
+	assert(tmp == SUCCESS);
+	assert(equalStr(record.pData, pData, rmFileHandle.rmPageHandle->recordSize));
+
+	rid.pageNum = 2;
+	rid.slotNum = 1;
+	tmp = GetRec(&rmFileHandle, &rid, &record);
+	assert(tmp == SUCCESS);
+	assert(equalStr(record.pData, pData, rmFileHandle.rmPageHandle->recordSize));
+
+
+
+
+	rid.pageNum = 2;
+	rid.slotNum = 2;
+
+	tmp = DeleteRec(&rmFileHandle, &(rid));
+	assert(tmp == SUCCESS);
+	assert(rmFileHandle.pRecordFileSubHeader->nRecords == 2);
+	std::cout << "TestDeleteRec:" << "SUCCESS" << std::endl;
+
+
+	tmp = GetRec(&rmFileHandle, &rid, &record);
+	assert(tmp == RM_INVALIDRID);
+
+	RM_CloseFile(&rmFileHandle);
+	tmp = RM_OpenFile(fileName, &rmFileHandle);
+	assert(tmp == SUCCESS);
+	rid.pageNum = 2;
+	rid.slotNum = 0;
+	tmp = GetRec(&rmFileHandle, &rid, &record);
+	assert(tmp == SUCCESS);
+	assert(equalStr(record.pData, pData, rmFileHandle.rmPageHandle->recordSize));
+	assert(rmFileHandle.pRecordFileSubHeader->nRecords == 2);
+	assert(rmFileHandle.pRecordFileSubHeader->recordSize == 12);
+	assert((int)rmFileHandle.rmPageHandle->bitmap[0] == 0x3);
+
+	RM_FileScan fileScan;
+	Con con;
+
+	OpenScan(&fileScan, &rmFileHandle, 0, &con);
+	GetRec(&rmFileHandle, &rid, &record);
+	int i = 0;
+	while (true)
+	{
+		tmp = GetNextRec(&fileScan, &record);
+		if (tmp == RM_EOF)
+			break;
+		if (i >= 2) {
+			assert(false);//多于两个记录
+			break;
+		}
+		assert(tmp == SUCCESS);
+		assert(record.bValid == true);
+		assert(record.rid.bValid == true);
+		assert(record.rid.pageNum == 2);
+		assert(record.rid.slotNum == i);
+		i++;
+		assert(equalStr(record.pData, pData, rmFileHandle.rmPageHandle->recordSize));
+	}
+	std::cout << "TestScan:" << "SUCCESS" << std::endl;
+	RM_CloseFile(&rmFileHandle);
 }
+
+
+
+
+
+
 
 
 
