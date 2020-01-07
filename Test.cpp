@@ -18,6 +18,10 @@ void TestOpenFile();
 void TestOperateRec();
 //void TestScan();
 void printlnMsg(RC tmp);
+//设置Project依赖关系 和 startup Project为 current select
+//将HustBase输出改为静态库
+//Test Project的额外头文件包含HustBase （C++/Additional Include）
+
 int main(void)
 {
 
